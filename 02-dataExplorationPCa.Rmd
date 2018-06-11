@@ -1,0 +1,23 @@
+---
+output: html_document
+---
+
+## Clinical data exploration example: prostate
+
+`r Sys.Date()`
+
+*** 
+
+Data used here was downloaded from TCGA's pan-cancer clinical data resource from Supplementary Table 1 of [this paper](https://www.cell.com/cell/fulltext/S0092-8674(18)30229-0).
+
+```{r message=FALSE}
+library(here)
+library(tidyverse)
+
+load(here("data", "clinData.RData"))
+
+# filter to PRAD
+dat <- dat %>% filter(type=="PRAD")
+glimpse(dat)
+```
+
