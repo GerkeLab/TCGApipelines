@@ -1,5 +1,5 @@
 ---
-output: html_document
+output: github_document
 ---
 
 ## Clinical data exploration example: prostate
@@ -13,9 +13,8 @@ Data used here was downloaded from TCGA's pan-cancer clinical data resource from
 ```{r message=FALSE}
 library(here)
 library(tidyverse)
-library(kableExtra)
 
-load(here("data", "clinData.RData"))
+load(here("data", "tcga-liu2018_clinData.RData"))
 
 # filter to PRAD
 dat <- dat %>% filter(type=="PRAD")
@@ -32,16 +31,16 @@ all.equal(dat$OS.time, dat$DSS.time)
 table(dat$new_tumor_event_type, useNA="ifany")
 
 # 5 patients with unequal DFI and PFI times when DFI is not mising, all have new primaries
-dat %>% filter(DFI.time != PFI.time) %>% 
+dat %>% 
+   filter(DFI.time != PFI.time) %>% 
    select(bcr_patient_barcode, new_tumor_event_type, DFI.time, PFI.time) %>% 
-   kable() %>% 
-   kable_styling(bootstrap_options = c("striped", "hover"))
+   knitr::kable() 
 
 # what about those with BCR?
-dat %>% filter(new_tumor_event_type=="Biochemical evidence of disease") %>% 
+dat %>% 
+   filter(new_tumor_event_type=="Biochemical evidence of disease") %>% 
    select(bcr_patient_barcode, new_tumor_event_type, DFI.time, PFI.time) %>% 
-   kable() %>% 
-   kable_styling(bootstrap_options = c("striped", "hover"))
+   knitr::kable() 
 
 # look at time to BCR in days and then in months
 BCRdat <- dat %>% filter(new_tumor_event_type=="Biochemical evidence of disease")
