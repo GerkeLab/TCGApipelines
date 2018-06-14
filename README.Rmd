@@ -1,0 +1,31 @@
+---
+output: github_document
+---
+
+<!-- README.md is generated from README.Rmd. Please edit that file -->
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+library(dplyr)
+library(glue)
+```
+# TCGApipelines
+
+## Data
+
+```{r echo=FALSE}
+x <- tibble::tribble(
+   ~ `Short Name`, ~ `Source`, ~ `Documentation`, ~ `Link`
+   , "tcga-liu2018", "Liu et. al., Cell (2018)", TRUE, "https://doi.org/10.1016/j.cell.2018.02.052"
+)
+
+x %>% 
+   mutate(
+      `Documentation` = ifelse(`Documentation`, glue("[docs/{`Short Name`}](docs/{`Short Name`})"), ""),
+      `Short Name` = glue("`{`Short Name`}`")
+   ) %>% 
+   knitr::kable()
+```
