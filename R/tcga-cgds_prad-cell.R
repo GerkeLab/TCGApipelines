@@ -20,6 +20,7 @@ prad_tcga_clinicaldata <- prad_tcga_caselist %>%
    pull(case_list_id) %>% 
    .[1] %>% 
    getClinicalData(cgds, .) %>% 
+   tibble::rownames_to_column("id") %>% 
    as_tibble() %>% 
    janitor::clean_names()
 

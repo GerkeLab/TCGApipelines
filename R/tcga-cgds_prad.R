@@ -15,7 +15,12 @@ prad_tcga <- as_tibble(getCancerStudies(cgds)) %>%
 prad_tcga_caselist <- getCaseLists(cgds, prad_tcga$cancer_study_id) %>% 
    as_tibble()
 
-prad_tcga_clinicaldata <- getClinicalData(cgds, "prad_tcga_all") %>% 
+prad_tcga_clinicaldata <- prad_tcga_caselist %>% 
+   filter(str_detect(case_list_id, "_all$")) %>% 
+   pull(case_list_id) %>% 
+   .[1] %>% 
+   getClinicalData(cgds, .) %>% 
+   tibble::rownames_to_column("id") %>% 
    as_tibble() %>% 
    janitor::clean_names()
 
