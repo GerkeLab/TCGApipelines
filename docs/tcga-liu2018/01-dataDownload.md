@@ -1,7 +1,7 @@
 
 ## Clinical data download
 
-2018-06-14
+2018-06-15
 
 -----
 
@@ -15,11 +15,12 @@ download.file("https://www.cell.com/cms/attachment/2119196605/2090459781/mmc1.xl
 ```
 
 This piece now reads the first sheet which contains the 11,160 clinical
-records and exports to an RData
+records and exports to an RData (RDS)
 object.
 
 ``` r
 dat <- readxl::read_xlsx(here("data", "tcga-liu2018_clinData.xlsx"), na=c("", "#N/A"), guess_max=2000)
-save(dat, file=here("data", "tcga-liu2018_clinData.RData"))
+dat <- dat[, -1] # First column is just row number
+saveRDS(dat, file=here("data", "tcga-liu2018_clinData.rds"))
 readr::write_csv(dat, here("data", "tcga-liu2018_clinData.csv"))
 ```

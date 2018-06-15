@@ -1,7 +1,7 @@
 
 ## Clinical data exploration example: prostate
 
-2018-06-14
+2018-06-15
 
 -----
 
@@ -13,7 +13,7 @@ paper](https://www.cell.com/cell/fulltext/S0092-8674\(18\)30229-0).
 library(here)
 library(tidyverse)
 
-load(here("data", "tcga-liu2018_clinData.RData"))
+dat <- readRDS(here("data", "tcga-liu2018_clinData.rds"))
 
 # filter to PRAD
 dat <- dat %>% filter(type=="PRAD")
@@ -21,8 +21,7 @@ glimpse(dat)
 ```
 
     ## Observations: 500
-    ## Variables: 34
-    ## $ X__1                                <chr> "7867", "7868", "7869", "7...
+    ## Variables: 33
     ## $ bcr_patient_barcode                 <chr> "TCGA-2A-A8VL", "TCGA-2A-A...
     ## $ type                                <chr> "PRAD", "PRAD", "PRAD", "P...
     ## $ age_at_initial_pathologic_diagnosis <dbl> 51, 57, 47, 52, 70, 54, 69...

@@ -14,7 +14,7 @@ Data used here was downloaded from TCGA's pan-cancer clinical data resource from
 library(here)
 library(tidyverse)
 
-load(here("data", "tcga-liu2018_clinData.RData"))
+dat <- readRDS(here("data", "tcga-liu2018_clinData.rds"))
 
 # filter to PRAD
 dat <- dat %>% filter(type=="PRAD")
