@@ -1,52 +1,58 @@
-readme.R
+Comparing TCGA PRAD Data: CGDS vs Liu2018
 ================
-garrickaden-buie
-Thu Jul 5 17:09:55 2018
+Gerke Lab, Moffitt Cancer Center
+Friday, Jul 06, 2018
+
+## Load Data
 
 ``` r
 library(tidyverse)
 library(different)
 ```
 
-## Load Data
+The data come from **CGDS** – [cBioPortal (TCGA,
+Provisional)](http://www.cbioportal.org/study?id=prad_tcga#summary) –
+and **Liu2018** – [Liu et. al., Cell
+(2018)](https://doi.org/10.1016/j.cell.2018.02.052).
+
+Both are reproduced in
+[github.com/gerkelab/TCGApipelines](https://github.com/GerkeLab/TCGApipelines).
 
 ``` r
 tcga_liu2018 <- readRDS(here::here("data/tcga-liu2018_clinData.rds"))
-```
-
-    ## Warning in readLines(f, n): line 1 appears to contain an embedded nul
-
-    ## Warning in readLines(f, n): incomplete final line found on '/Volumes/CHUSF/
-    ## moffitt/work/TCGApipelines/._TCGApipelines.Rproj'
-
-``` r
 tcga_cgds <- readRDS(here::here("data/tcga-cgds_prad.rds"))
 ```
 
-Liu 2018 contains multiple cancer types. We need to filter down to
+**Liu2018** contains multiple cancer types, so we need to filter down to
 `"PRAD"`.
 
 ``` r
 tcga_liu2018 <- filter(tcga_liu2018, type == "PRAD")
 ```
 
-Quick look at dimensions
+Quick look at the dimensions of both datasets.
 
 ``` r
-dim(tcga_liu2018)
+list(
+   Liu2018 = tcga_liu2018,
+   CGDS = tcga_cgds
+) %>% 
+   purrr::map(~ setNames(dim(.), c("Rows", "Columns"))) %>% 
+   purrr::transpose() %>% purrr::transpose() %>% 
+   purrr::map_dfr(~ ., .id = "Set")
 ```
 
-    ## [1] 500  33
-
-``` r
-dim(tcga_cgds)
-```
-
-    ## [1] 499  80
+    ## # A tibble: 2 x 3
+    ##   Set      Rows Columns
+    ##   <chr>   <int>   <int>
+    ## 1 Liu2018   500      33
+    ## 2 CGDS      499      80
 
 ## Match ID Column
 
-Columns containing IDs have different column names and format.
+The columns containing IDs have different column names and format, so we
+first need to standardize name and format so that we can match patients
+from **CGDS** to those in **Liu2018**.
 
 ``` r
 tcga_liu2018 %>% slice(1:5) %>% select(bcr_patient_barcode)
@@ -74,9 +80,9 @@ tcga_cgds %>% slice(1:5) %>% select(id)
     ## 4 TCGA.EJ.5502.01
     ## 5 TCGA.YJ.A8SW.01
 
-In general, it seems that Liu 2018 drops the trailing `.NN` and replaces
-`.` with `-` characters. Here’s a quick function that transforms the
-IDs.
+In general, it seems that **Liu2018** drops the trailing `.NN` and
+replaces `.` with `-` characters. Here’s a quick function that
+transforms the IDs.
 
 ``` r
 cgds_to_liu2018_id <- function(ids) {
@@ -99,8 +105,10 @@ cgds_to_liu2018_id(tcga_cgds$id[1])
 
     ## [1] "TCGA-V1-A9OQ"
 
-The IDs in the CGDS dataset contain a trailing `.NN`. Are these always
-`.01`?
+### Trailing `.NN` in CGDS
+
+The IDs in the **CGDS** dataset contain a trailing `.NN`. Are these
+always `.01`?
 
 ``` r
 tcga_cgds %>% 
@@ -157,8 +165,8 @@ different::tidy_diff(cgds_odd_data[1, ], cgds_odd_data[2, ])
     ## 1 id       x     TCGA.V1.A9O5.06
     ## 2 id       y     TCGA.V1.A9O5.01
 
-The only difference in the CGDS data between these two IDs is the ID
-itself. Does this ID appear in the Liu2018 data?
+The only difference in the **CGDS** data between the patients with these
+IDs is the ID itself. Does this ID appear in the **Liu2018** data?
 
 ``` r
 tcga_liu2018 %>% 
@@ -178,7 +186,7 @@ tcga_cgds <- tcga_cgds %>%
    filter(id != cgds_odd_id)
 ```
 
-Process CGDS dataset to match Liu2018
+### Match CGDS IDs to Liu2018
 
 ``` r
 tcga_cgds <- tcga_cgds %>%
@@ -186,8 +194,8 @@ tcga_cgds <- tcga_cgds %>%
    rename(bcr_patient_barcode = id)
 ```
 
-Liu2018 contains two additional participants not included in the CGDS
-dataset
+**Liu2018** contains two additional participants not included in the
+**CGDS** dataset:
 
 ``` r
 tcga_liu2018 %>% 
@@ -201,7 +209,7 @@ tcga_liu2018 %>%
 | TCGA-HC-7741          | PRAD |                    2725 |
 | TCGA-HC-8212          | PRAD |                    2179 |
 
-So we’ll remove those patients for further comparison
+So we’ll remove those patients for the remainder of this comparison.
 
 ``` r
 tcga_liu2018 <- tcga_liu2018 %>%
@@ -210,14 +218,20 @@ tcga_liu2018 <- tcga_liu2018 %>%
 
 ## First look at differences
 
-Arrange both datasets by ID so that to align the rows.
+First, we arrange both datasets by ID so that their rows are aligned.
 
 ``` r
 tcga_cgds <- arrange(tcga_cgds, bcr_patient_barcode)
 tcga_liu2018 <- arrange(tcga_liu2018, bcr_patient_barcode)
 ```
 
-Let `different` take a shot at the data
+From here, we’ll use a package we are currently developing for comparing
+and resolving the differences between data sets, called `different`.
+
+We’ll use this package for a first look at the differences between
+**CGDS** and **Liu2018** and then we’ll try to resolve these differences
+by uncovering the steps required to transform **CGDS** to be as close as
+possible to **Liu2018**.
 
 ``` r
 tcga_diff <- tidy_diff(tcga_cgds, tcga_liu2018)
@@ -225,14 +239,14 @@ tcga_diff <- tidy_diff(tcga_cgds, tcga_liu2018)
 summary(tcga_diff)
 ```
 
-    ## ── Comparison Summary ───────────────────────────────────────────────────────────────────────────────────────────────
+    ## ── Comparison Summary ──────────────────────────────────────────────────────────────────────────
     ## ● Dimensions
     ##     set           rows  cols
     ##   1 tcga_cgds      498    80
     ##   2 tcga_liu2018   498    33
     ## 
-    ## ● 'tcga_cgds' has 73 unique columns: `age`, `biochemical_recurrence_indicator...[0m
-    ## ● 'tcga_liu2018' has 26 unique columns: `type`, `age_at_initial_pathologic_di...[0m
+    ## ● 'tcga_cgds' has 73 unique columns: `age`, `biochemical_recurrence_indicator...
+    ## ● 'tcga_liu2018' has 26 unique columns: `type`, `age_at_initial_pathologic_di...
     ## ● 'tcga_cgds' and 'tcga_liu2018' have differing data types in 1 column:
     ##     column                     tcga_cgds tcga_liu2018
     ##   1 initial_pathologic_dx_year integer   numeric     
@@ -253,33 +267,45 @@ summary(tcga_diff)
 
 ## Matching Columns
 
-Column matching rules were generated by comparing columns by hand,
-visually inspecting values, etc.
+At this point, there are many more columns in **CGDS** and the names are
+not the same for most of these. The 7 columns with the same names were
+automatically matched. The remaining columns were matched via rules that
+were generated by comparing columns by hand, by visually inspecting
+values, etc.
 
 ``` r
-match_rules <- tibble::tribble(
-   ~liu2018,                              ~cgds,                                  ~merged,
-   "bcr_patient_barcode",                 "bcr_patient_barcode",                  "bcr_patient_barcode",
-   "type",                                "cancer_type",                          "type",
-   "age_at_initial_pathologic_diagnosis", "age",                                  "age_at_initial_pathologic_diagnosis",
-   "gender",                              "sex",                                  "gender",
-   "race",                                "race",                                 "race",
-   "clinical_stage",                      "clin_t_stage",                         "clinical_stage",
-   "histological_type",                   "histological_diagnosis",               "histological_type",
-   "initial_pathologic_dx_year",          "initial_pathologic_dx_year",           "initial_pathologic_dx_year",
-   "birth_days_to",                       "days_to_birth",                        "birth_days_to",
-   "vital_status",                        "vital_status",                         "vital_status",
-   "tumor_status",                        "tumor_status",                         "tumor_status",
-   "last_contact_days_to",                "days_to_last_followup",                "last_contact_days_to",
-   "death_days_to",                       "days_to_death",                        "death_days_to",
-   "cause_of_death",                      "patient_death_reason",                 "cause_of_death",
-   "new_tumor_event_dx_days_to",          "days_to_biochemical_recurrence_first", "new_tumor_event_dx_days_to",
-   "treatment_outcome_first_course",      "treatment_outcome_first_course",       "treatment_outcome_first_course",
-   "residual_tumor",                      "residual_tumor",                       "residual_tumor",
-   "OS",                                  "os_status",                            "OS",
-   "OS.time",                             "os_months",                            "OS.time"
-)
+source(here::here("docs/compare-cgds-vs-liu2018/match_rules.R"))
+match_rules
+```
 
+    ## # A tibble: 19 x 3
+    ##    liu2018                             cgds              merged           
+    ##    <chr>                               <chr>             <chr>            
+    ##  1 bcr_patient_barcode                 bcr_patient_barc… bcr_patient_barc…
+    ##  2 type                                cancer_type       type             
+    ##  3 age_at_initial_pathologic_diagnosis age               age_at_initial_p…
+    ##  4 gender                              sex               gender           
+    ##  5 race                                race              race             
+    ##  6 clinical_stage                      clin_t_stage      clinical_stage   
+    ##  7 histological_type                   histological_dia… histological_type
+    ##  8 initial_pathologic_dx_year          initial_patholog… initial_patholog…
+    ##  9 birth_days_to                       days_to_birth     birth_days_to    
+    ## 10 vital_status                        vital_status      vital_status     
+    ## 11 tumor_status                        tumor_status      tumor_status     
+    ## 12 last_contact_days_to                days_to_last_fol… last_contact_day…
+    ## 13 death_days_to                       days_to_death     death_days_to    
+    ## 14 cause_of_death                      patient_death_re… cause_of_death   
+    ## 15 new_tumor_event_dx_days_to          days_to_biochemi… new_tumor_event_…
+    ## 16 treatment_outcome_first_course      treatment_outcom… treatment_outcom…
+    ## 17 residual_tumor                      residual_tumor    residual_tumor   
+    ## 18 OS                                  os_status         OS               
+    ## 19 OS.time                             os_months         OS.time
+
+Two datasets are then created that match the “overlap” between the
+original datasets. The matched datasets now have the same number of
+columns, the same column names and the same number of rows.
+
+``` r
 tcga_liu2018_matched <- tcga_liu2018[, match_rules$liu2018]
 colnames(tcga_liu2018_matched) <- match_rules$merged
 
@@ -290,13 +316,13 @@ tcga_diff <- tidy_diff(tcga_cgds_matched, tcga_liu2018_matched)
 summary(tcga_diff)
 ```
 
-    ## ── Comparison Summary ───────────────────────────────────────────────────────────────────────────────────────────────
+    ## ── Comparison Summary ──────────────────────────────────────────────────────────────────────────
     ## ● Dimensions
     ##     set                   rows  cols
     ##   1 tcga_cgds_matched      498    19
     ##   2 tcga_liu2018_matched   498    19
     ## 
-    ## ● 'tcga_cgds_matched' and 'tcga_liu2018_matched' have the same 19 columns: `b...[0m
+    ## ● 'tcga_cgds_matched' and 'tcga_liu2018_matched' have the same 19 columns: `b...
     ## ● 'tcga_cgds_matched' and 'tcga_liu2018_matched' have differing data types in 7 columns:
     ##     column                              tcga_cgds_matched tcga_liu2018_matc…
     ##   1 age_at_initial_pathologic_diagnosis integer           numeric           
@@ -329,20 +355,29 @@ summary(tcga_diff)
     ##   18 birth_days_to                       same           0 ""                
     ##   19 vital_status                        same           0 ""
 
+But there are still a lot of differences between the two datasets. Each
+point below indicates a miss between the two – i.e. a value that is not
+the same in both data sets.
+
 ``` r
 plot(tcga_diff)
 ```
 
-![](readme_files/figure-gfm/unnamed-chunk-19-1.png)<!-- -->
+![](readme_files/figure-gfm/diff-plot-1.png)<!-- -->
 
 ## Transformations
 
-As seen in the previous plot, there are 8 columns that are completely
-different. This is most likely the result of recoding categorical
-variables (e.g. `1` vs `Deceased`) or of a difference in units (e.g.
-*months* vs *days*).
+As seen in the previous plot, there are 7 columns that are completely
+different across all or nearly all observations. This is most likely the
+result of recoding categorical variables (e.g. `1` vs `Deceased`) or of
+a difference in units (e.g. *months* vs *days*).
+
+The plot below compares the values of a column from **CGDS** to its
+corresponding value in **Liu2018** when they are not the same in both.
 
 ![](readme_files/figure-gfm/unnamed-chunk-20-1.png)<!-- -->
+
+### Convert Months to Days
 
 Of the variables that are completely different one results from a
 scaling difference.
@@ -361,66 +396,63 @@ OS.time_lm
     ##    0.007613    30.439908
 
 Looks like this is a result of converting overall survival time from
-months (decimal) to days (integer). ![The first search result for “how
-to convert months to days”.](convert-months-to-days.png)
+months (decimal) to days (integer). Here’s the first search result for
+*how to convert months to days*.
 
-``` r
-ggplot(tcga_diff$tidy$OS.time) +
-   aes(x = value.x, y = value.y - round(value.x * 30.4375), 0) +
-   geom_point() + 
-   labs(x = "CGDS value in months", y = "Liu (days) / 30.5 - CGDS (months)")
-```
+![](convert-months-to-days.png)
+
+Rounding like this is destructive, so we can only modify the value
+expressed in months (as a decimal) to be able to compare with the number
+of days (integer).
+
+Once we make this transformation, all differences in our data
+dissappear.
 
 ![](readme_files/figure-gfm/unnamed-chunk-22-1.png)<!-- -->
 
-Rounding like this is destructive, so we can only modify the value
-expressed in months to be able to compare the values directly.
+After review, this change is made to the **CGDS** data.
 
 ``` r
 tcga_cgds_matched <- tcga_cgds_matched %>%
   mutate(OS.time = round(OS.time * 30.4375, 0))
 ```
 
+### Categorical Transformations
+
 Now we can convert the categorical differences. Here are three examples
 of the recoding that takes place.
 
-``` r
-tcga_diff$tidy %>% 
-   .[vars_totally_different[-length(vars_totally_different)]] %>% 
-   map(~ group_by(., value.y, value.x) %>% 
-              count() %>%
-              mutate_if(is.double, function(x) paste(round(x, 4))) %>% 
-              mutate_all(as.character),
-           .id = "variable") %>% 
-   .[1:3] %>% 
-   knitr::kable()
-```
+#### `type`
 
-| value.y | value.x         | n   |
-| :------ | :-------------- | :-- |
-| PRAD    | Prostate Cancer | 498 |
+| Value in Liu2018 | Value in CGDS   | n   |
+| :--------------- | :-------------- | :-- |
+| PRAD             | Prostate Cancer | 498 |
 
-| value.y | value.x | n   |
-| :------ | :------ | :-- |
-| MALE    | Male    | 498 |
+#### `gender`
 
-| value.y            | value.x     | n   |
-| :----------------- | :---------- | :-- |
-| \[Not Applicable\] |             | 91  |
-| \[Not Applicable\] | \[Unknown\] | 1   |
-| \[Not Applicable\] | T1a         | 1   |
-| \[Not Applicable\] | T1b         | 2   |
-| \[Not Applicable\] | T1c         | 175 |
-| \[Not Applicable\] | T2          | 13  |
-| \[Not Applicable\] | T2a         | 56  |
-| \[Not Applicable\] | T2b         | 54  |
-| \[Not Applicable\] | T2c         | 50  |
-| \[Not Applicable\] | T3a         | 36  |
-| \[Not Applicable\] | T3b         | 17  |
-| \[Not Applicable\] | T4          | 2   |
+| Value in Liu2018 | Value in CGDS | n   |
+| :--------------- | :------------ | :-- |
+| MALE             | Male          | 498 |
 
-The following encodes the rules to move from the CGDS dataset to the
-Liu2018 dataset.
+#### `clinical_stage`
+
+| Value in Liu2018   | Value in CGDS | n   |
+| :----------------- | :------------ | :-- |
+| \[Not Applicable\] |               | 91  |
+| \[Not Applicable\] | \[Unknown\]   | 1   |
+| \[Not Applicable\] | T1a           | 1   |
+| \[Not Applicable\] | T1b           | 2   |
+| \[Not Applicable\] | T1c           | 175 |
+| \[Not Applicable\] | T2            | 13  |
+| \[Not Applicable\] | T2a           | 56  |
+| \[Not Applicable\] | T2b           | 54  |
+| \[Not Applicable\] | T2c           | 50  |
+| \[Not Applicable\] | T3a           | 36  |
+| \[Not Applicable\] | T3b           | 17  |
+| \[Not Applicable\] | T4            | 2   |
+
+The following encodes the rules to move from the **CGDS** dataset to the
+**Liu2018** dataset.
 
 ``` r
 tcga_cgds_matched <- tcga_cgds_matched %>%
@@ -451,13 +483,13 @@ tcga_diff <- tidy_diff(tcga_cgds_matched, tcga_liu2018_matched)
 summary(tcga_diff)
 ```
 
-    ## ── Comparison Summary ───────────────────────────────────────────────────────────────────────────────────────────────
+    ## ── Comparison Summary ──────────────────────────────────────────────────────────────────────────
     ## ● Dimensions
     ##     set                   rows  cols
     ##   1 tcga_cgds_matched      498    19
     ##   2 tcga_liu2018_matched   498    19
     ## 
-    ## ● 'tcga_cgds_matched' and 'tcga_liu2018_matched' have the same 19 columns: `b...[0m
+    ## ● 'tcga_cgds_matched' and 'tcga_liu2018_matched' have the same 19 columns: `b...
     ## ● 'tcga_cgds_matched' and 'tcga_liu2018_matched' have differing data types in 8 columns:
     ##     column                              tcga_cgds_matched tcga_liu2018_matc…
     ##   1 age_at_initial_pathologic_diagnosis integer           numeric           
@@ -500,7 +532,8 @@ Liu2018 dataset, but the values were replaced with `[Not Applicable]`.
 
 ### Transformations
 
-The following columns needed to be transformed:
+The following columns were transformed from their original presentation
+in **CGDS** to **Liu2018** via the transformations listed below.
 
   - `os_months` was converted to `OS.time` by multiplying by 30.4375 and
     rounding to the nearest integer.
@@ -519,123 +552,68 @@ The following columns needed to be transformed:
 
 The following variables were updated in the Liu2018 dataset.
 
-#### `last_contact_days_to`
-
-It’s really not clear to me how this was
-updated.
-
 ``` r
-left_join(tcga_liu2018_matched, tcga_cgds_matched, by = "bcr_patient_barcode",
-          suffix = c(".liu", ".cgds")) %>% 
-   # select(bcr_patient_barcode, starts_with("last_contact_days_to")) %>% 
-   mutate(diff = last_contact_days_to.liu - last_contact_days_to.cgds) %>% 
-   ggplot() +
-   aes(x = bcr_patient_barcode, color = vital_status.liu, y = diff) +
-   geom_point() +
-   theme(axis.text.x = element_blank())
+blank_or_missing <- function(x) {
+   x[x == ""] <- "*blank*"
+   x[x == " "] <- "*blank*"
+   x[is.na(x)] <- "*missing*"
+   x
+}
 ```
 
-    ## Warning: Removed 10 rows containing missing values (geom_point).
+#### `last_contact_days_to`
 
-![](readme_files/figure-gfm/unnamed-chunk-27-1.png)<!-- -->
+It’s really not clear to me how this was updated.
+
+![](readme_files/figure-gfm/unnamed-chunk-29-1.png)<!-- -->
 
 #### `treatment_outcome_first_course`
 
 Liu2018 appears to have updated a large number of the values that were
 previously blank in CGDS.
 
-``` r
-tcga_diff$tidy %>% 
-   .["treatment_outcome_first_course"] %>% 
-   map(~ group_by(., value.y, value.x) %>% 
-          count() %>%
-          mutate_if(is.double, function(x) paste(round(x, 4))) %>% 
-          mutate_all(as.character),
-       .id = "variable") %>% 
-   knitr::kable()
-```
-
-| value.y                     | value.x | n   |
-| :-------------------------- | :------ | :-- |
-| \[Discrepancy\]             |         | 4   |
-| \[Not Applicable\]          |         | 7   |
-| \[Not Available\]           |         | 24  |
-| \[Unknown\]                 |         | 27  |
-| Complete Remission/Response |         | 176 |
-| Partial Remission/Response  |         | 10  |
-| Progressive Disease         |         | 14  |
-| Stable Disease              |         | 8   |
+| Value in Liu2018            | Value in CGDS | n   |
+| :-------------------------- | :------------ | :-- |
+| \[Discrepancy\]             | *blank*       | 4   |
+| \[Not Applicable\]          | *blank*       | 7   |
+| \[Not Available\]           | *blank*       | 24  |
+| \[Unknown\]                 | *blank*       | 27  |
+| Complete Remission/Response | *blank*       | 176 |
+| Partial Remission/Response  | *blank*       | 10  |
+| Progressive Disease         | *blank*       | 14  |
+| Stable Disease              | *blank*       | 8   |
 
 #### `tumor_status`
 
 Similarly, tumor status was updated as well.
 
-``` r
-tcga_diff$tidy %>%
-   .["tumor_status"] %>% 
-   map(~ group_by(., value.y, value.x) %>% 
-          count() %>%
-          mutate_if(is.double, function(x) paste(round(x, 4))) %>% 
-          mutate_all(as.character),
-       .id = "variable") %>% 
-   knitr::kable()
-```
-
-| value.y         | value.x    | n  |
-| :-------------- | :--------- | :- |
-| \[Discrepancy\] |            | 4  |
-| \[Discrepancy\] | TUMOR FREE | 1  |
-| TUMOR FREE      |            | 21 |
-| TUMOR FREE      | WITH TUMOR | 22 |
-| WITH TUMOR      |            | 7  |
-| WITH TUMOR      | TUMOR FREE | 11 |
-| NA              |            | 59 |
+| Value in Liu2018 | Value in CGDS | n  |
+| :--------------- | :------------ | :- |
+| \[Discrepancy\]  | *blank*       | 4  |
+| \[Discrepancy\]  | TUMOR FREE    | 1  |
+| TUMOR FREE       | *blank*       | 21 |
+| TUMOR FREE       | WITH TUMOR    | 22 |
+| WITH TUMOR       | *blank*       | 7  |
+| WITH TUMOR       | TUMOR FREE    | 11 |
+| *missing*        | *blank*       | 59 |
 
 #### `cause_of_death`
 
-``` r
-tcga_diff$tidy %>% 
-   .["cause_of_death"] %>% 
-   map(~ group_by(., value.y, value.x) %>% 
-          count() %>%
-          mutate_if(is.double, function(x) paste(round(x, 4))) %>% 
-          mutate_all(as.character),
-       .id = "variable") %>% 
-   knitr::kable()
-```
-
-| value.y           | value.x | n |
-| :---------------- | :------ | :- |
-| \[Not Available\] |         | 2 |
-| \[Unknown\]       |         | 4 |
+| Value in Liu2018  | Value in CGDS | n |
+| :---------------- | :------------ | :- |
+| \[Not Available\] | *blank*       | 2 |
+| \[Unknown\]       | *blank*       | 4 |
 
 #### `death_days_to`
 
-``` r
-tcga_diff$tidy %>% 
-   .["death_days_to"] %>% 
-   map(~ group_by(., value.y, value.x) %>% 
-          count() %>%
-          mutate_if(is.double, function(x) paste(round(x, 4))) %>% 
-          mutate_all(as.character),
-       .id = "variable") %>% 
-   knitr::kable()
-```
-
-| value.y | value.x | n |
-| ------: | ------: | :- |
-|    2469 |      NA | 1 |
-|    3502 |      NA | 1 |
+| Value in Liu2018 | Value in CGDS | n |
+| :--------------- | :------------ | :- |
+| 2469             | *missing*     | 1 |
+| 3502             | *missing*     | 1 |
 
 #### `new_tumor_event_dx_days_to`
 
-Values missing in CGDS are at y-axis, values missing in Liu2018 are on X
-axis.
+Values missing in CGDS are at y-axis, values missing in Liu2018 are on
+x-axis.
 
-``` r
-tcga_diff$tidy$new_tumor_event_dx_days_to %>%
-  mutate_at(vars(starts_with("value")), function(x) ifelse(is.na(x), 0, x)) %>%
-  ggplot(aes(x = value.x, y = value.y)) + geom_point()
-```
-
-![](readme_files/figure-gfm/unnamed-chunk-32-1.png)<!-- -->
+![](readme_files/figure-gfm/unnamed-chunk-34-1.png)<!-- -->
