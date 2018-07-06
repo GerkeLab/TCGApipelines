@@ -3,13 +3,13 @@ title: "Comparing TCGA PRAD Data: CGDS vs Liu2018"
 author: "Gerke Lab, Moffitt Cancer Center"
 date: '`r strftime(Sys.time(), "%A, %b %d, %Y")`'
 output: 
+  github_document: default
   html_document: 
     highlight: kate
     theme: readable
     toc: yes
     toc_float: yes
     df_print: kable
-  github_document: default
 ---
 
 ```{r include=FALSE}
